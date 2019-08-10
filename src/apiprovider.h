@@ -2,6 +2,7 @@
 #define APIPROVIDER_H
 
 #include <QtDebug>
+#include <QString>
 #include <QObject>
 #include <QJSValue>
 #include <QJSEngine>
@@ -19,7 +20,7 @@ class Element : public QObject {
     QLinkedList<Element*> child;
   public:
     explicit Element(QString type, QLinkedList<Element*> child);
-    virtual Element();
+    virtual ~Element();
   public:
     QLinkedList<Element*> getChild() const;
     QString getType() const;
@@ -37,10 +38,11 @@ class ApiProvider : public QObject {
     explicit ApiProvider(QJSEngine* engine);
     virtual ~ApiProvider();
   public slots:
-    QJSValue createElement(QJSValue type, QJSValue child);
+    QJSValue createElementInternal(QJSValue type, QJSValue child);
     void render(QJSValue root);
+    void test(QJSValue array){qDebug() << array.toString();}
   public:
-    void initSingletonType(QQmlEngine *engine, QJSEngine *scriptEngine);
+    static QJSValue initSingletonType(QQmlEngine *qml, QJSEngine *js);
 };
 
 /*****************************************************************************/

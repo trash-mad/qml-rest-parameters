@@ -1,5 +1,8 @@
 import QtQuick 2.7
+import QtQuick.Controls 1.0
 import QtQuick.Window 2.2
+
+import com.tripolskypetr.quitejs 1.0
 
 Window {
     visible: true
@@ -7,25 +10,20 @@ Window {
     height: 480
     title: qsTr("Hello World")
 
-    MouseArea {
-        anchors.fill: parent
+    Button {
+        anchors.centerIn: parent
+        text: "Click me and check console output"
         onClicked: {
-            console.log(qsTr('Clicked on background. Text: "' + textEdit.text + '"'))
-        }
-    }
-
-    TextEdit {
-        id: textEdit
-        text: qsTr("Enter some text...")
-        verticalAlignment: Text.AlignVCenter
-        anchors.top: parent.top
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.topMargin: 20
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: -10
-            color: "transparent"
-            border.width: 1
+            var root = Api.createElement("parent",
+                Api.createElement("child1"),
+                Api.createElement("child2",
+                    Api.createElement("child2-1"),
+                    Api.createElement("child2-2")
+                ),
+                Api.createElement("child3"),
+                Api.createElement("child4")
+            );
+            Api.render(root);
         }
     }
 }

@@ -12,11 +12,12 @@ Element::Element(QString type, QLinkedList<Element *> child)
         Element* elem = (*iter);
         elem->setParent(this);
     }
+    QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
 }
 
 /*---------------------------------------------------------------------------*/
 
-Element::Element() {
+Element::~Element() {
     qDebug() << "Element dtor";
 }
 
@@ -36,19 +37,19 @@ QString Element::getType() const {
 
 void Element::printTree(Element *root) {
     static int space=0;
-    char* tab = new char[space];
-    for (int i=0;i!=space;i++) {
-        tab[i]=' ';
+    QStringList line;
+    for (int i=space;i!=0;i--) {
+        line.append(" ");
     }
-    qInfo() << QString::fromStdString(std::string(tab)) << root->getType();
-    space+=4;
+    line.append(root->getType());
+    qInfo() << line.join("");
+    space+=2;
     QLinkedList<Element*> child=root->getChild();
     QLinkedList<Element*>::iterator iter;
     for (iter=child.begin();iter!=child.end();iter++) {
         printTree(*iter);
     }
-    space-=4;
-    delete tab;
+    space-=2;
 }
 
 /*****************************************************************************/
@@ -67,23 +68,22 @@ ApiProvider::~ApiProvider() {
 
 /*---------------------------------------------------------------------------*/
 
-QJSValue ApiProvider::createElement(
+QJSValue ApiProvider::createElementInternal(
     QJSValue type,
-    QJSValue props,
     QJSValue child
 ) {
-    qDebug() << "ApiProvider createElement type"<<type<<" props"<<props;
+    qDebug() << "ApiProvider createElementInternal type"<<type.toString();
     QLinkedList<Element*> elems;
     if (child.isArray()) {
-        const uint length = child.property("length");
+        const uint length = child.property("length").toUInt();
         for (uint i=0;i!=length;i++) {
             elems.append(static_cast<Element*>(child.property(i).toQObject()));
         }
     } else if (child.isQObject()) {
-        elems.append(static_cast<Element*>(child));
+        elems.append(static_cast<Element*>(child.toQObject()));
     } else if (!child.isUndefined()) {
         qCritical() << "ApiProvider createElement invalid child";
-        return;
+        return QJSValue();
     }
     return engine->newQObject(new Element(type.toString(),elems));
 }
@@ -95,7 +95,7 @@ void ApiProvider::render(QJSValue root) {
     if (root.isQObject()) {
         Element* elem = qobject_cast<Element*>(root.toQObject());
         Element::printTree(elem);
-        elem->deleteLater();
+        elem->setParent(this);
     } else {
         qCritical() << "ApiProvider render root is not QObject*";
     }
@@ -103,24 +103,34 @@ void ApiProvider::render(QJSValue root) {
 
 /*---------------------------------------------------------------------------*/
 
-void ApiProvider::initSingletonType(
+QJSValue ApiProvider::initSingletonType(
     QQmlEngine *qmlEngine,
     QJSEngine *jsEngine
 ) {
     qDebug() << "ApiProvider initSingletonType";
     Q_UNUSED(qmlEngine);
+    jsEngine->installExtensions(QJSEngine::ConsoleExtension);
     QJSValue instance=jsEngine->newQObject(new ApiProvider(jsEngine));
     QJSValue restProvider=jsEngine->evaluate(
-        "function() {"
-        "    const createElement=this.createElement"
-        "    this.createElement=function(type){"
-        "        const args=Array.apply(null, arguments).slice(1);"
-        "        return createElement(type, args);"
-        "    }"
-        "}",
+        "(function (instance) {" \
+        "   instance.createElement=function(type,...child){" \
+        "       return instance.createElementInternal(type,child);" \
+        "   }; " \
+        "   return instance;" \
+        "})"
     );
-    restProvider.callWithInstance(instance);
-    return instance;
+    if (restProvider.isError()) {
+        qCritical() << restProvider.toString();
+        return QJSValue();
+    } else {
+        QJSValue result=restProvider.call({instance});
+        if (result.isError()) {
+            qCritical() << result.toString();
+            return QJSValue();
+        } else {
+            return instance;
+        }
+    }
 }
 
 /*****************************************************************************/
