@@ -109,7 +109,6 @@ QJSValue ApiProvider::initSingletonType(
 ) {
     qDebug() << "ApiProvider initSingletonType";
     Q_UNUSED(qmlEngine);
-    jsEngine->installExtensions(QJSEngine::ConsoleExtension);
     QJSValue instance=jsEngine->newQObject(new ApiProvider(jsEngine));
     QJSValue restProvider=jsEngine->evaluate(
         "(function (instance) {" \
